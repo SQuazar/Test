@@ -31,7 +31,7 @@ public class RequestUtil {
         IQuery query = new IQuery() {
             @Override
             public String getUrl() {
-                return "https://api.vk.com/method/account.getProfileInfo";
+                return "https://api.vk.com/method/friends.get";
             }
 
             @Override
@@ -41,13 +41,14 @@ public class RequestUtil {
         };
         GetRequest request = new GetRequest()
         {{
+            add("user_id", 221249563);
+//            add("fields","first_name");
             add("access_token", "");
             add("v", 5.52);
         }};
         executeQuery(query, request, new Header[]{}, new Callback<Message>() {
             @Override
             public void onResult(Message result, String response, int code) {
-                System.out.println(response);
                 if (result == null) {
                     System.out.println("Result is null");
                     return;
@@ -88,7 +89,6 @@ public class RequestUtil {
                     JsonElement element = JsonParser.parseString(result);
                     if (!element.isJsonObject())
                         return;
-                    System.out.println(result);
                     Class<?> generic = (Class<?>) ((ParameterizedType) callback.getClass().getGenericSuperclass()).getActualTypeArguments()[0];
                     if (generic.isAnnotationPresent(Entity.class)) {
                         try {
@@ -100,7 +100,7 @@ public class RequestUtil {
                                 if (field.isAnnotationPresent(Entity.EntityKey.class))
                                     key = field.getAnnotation(Entity.EntityKey.class).value();
                                 JsonElement elem = find(field.getAnnotation(Entity.EntityKey.class).path(), element.getAsJsonObject());
-                                Object obj = new Gson().fromJson(elem.getAsJsonObject().get(key), field.getType());
+                                Object obj = new Gson().fromJson(key.isEmpty() ? elem : elem.getAsJsonObject().get(key), field.getType());
                                 field.set(instance, obj);
                             }
                             callback.onResult((T) instance, response.getStatusLine().getReasonPhrase(), response.getStatusLine().getStatusCode());
@@ -123,6 +123,14 @@ public class RequestUtil {
         String[] arr = path.split("\\.");
         JsonElement obj = object;
         for (String s : arr) {
+            if (obj.isJsonArray()) {
+                if (s.matches("\\[(\\d+)]")) {
+                    String sIndex = s.replaceAll("[\\[\\]]", "");
+                    int index = Integer.parseInt(sIndex);
+                    obj = obj.getAsJsonArray().get(index);
+                    continue;
+                }
+            }
             if (obj.isJsonObject())
                 obj = obj.getAsJsonObject().get(s);
         }
